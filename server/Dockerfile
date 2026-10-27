@@ -1,4 +1,10 @@
-FROM node:26-bookworm-slim AS install
+FROM node:26.12.1-bookworm-slim AS install
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 USER node
 WORKDIR /app
 
@@ -23,24 +29,4 @@ COPY --from=build_node /app/build /app/build
 
 EXPOSE 4416
 ENTRYPOINT ["/usr/local/bin/node", "build/main.js"]
-CMD ["--host", "0.0.0.0"]
-
-FROM denoland/deno:debian-2.9.5 AS server_deno
-USER deno
-WORKDIR /app
-ENV DENO_DIR=/app/.cache/deno
-ENV DENO_NO_PROMPT=1 DENO_NO_UPDATE_CHECK=1
-
-COPY types/ types/
-COPY tsconfig.json package.json deno.lock ./
-COPY --from=install --chown=deno:deno /app/node_modules node_modules/
-COPY src/ src/
-
-RUN deno cache --frozen src/main.ts
-
-EXPOSE 4416
-ENTRYPOINT [ \
-    "/usr/bin/deno", "run", "--allow-env", "--allow-net", \
-    "--allow-ffi=/app/node_modules", "--allow-read=/app/node_modules", \
-    "/app/src/main.ts"]
 CMD ["--host", "0.0.0.0"]
